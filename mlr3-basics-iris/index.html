@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Hugo 0.67.1" />
+
+
+<title>mlr3 basics on &#34;iris&#34; - Hello World! - mlr3 gallery</title>
+<meta property="og:title" content="mlr3 basics on &#34;iris&#34; - Hello World! - mlr3 gallery">
+
+
+  <link href='/favicon.ico' rel='icon' type='image/x-icon'/>
+
+
+
+  
+
+
+
+
+
+
+
+
+<link href='//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/gruvbox-dark.min.css' rel='stylesheet' type='text/css' />
+
+
+
+<link rel="stylesheet" href="/css/fonts.css" media="all">
+<link rel="stylesheet" href="/css/main.css" media="all">
+
+<link rel="stylesheet" href="/css/custom.css">
+
+
+
+  </head>
+  <body>
+    <div class="wrapper">
+      <header class="header">
+        <nav class="nav">
+  <a href="/" class="nav-logo">
+    <img src="/images/logo.png"
+         width="50"
+         height="50"
+         alt="mlr logo">
+  </a>
+
+  <ul class="nav-links">
+    
+    <li><a href="/about/">About</a></li>
+    
+    <li><a href="https://github.com/mlr-org/mlr3gallery">GitHub</a></li>
+    
+    <li><a href="https://mlr3.mlr-org.com">mlr3</a></li>
+    
+  </ul>
+</nav>
+
+      </header>
+
+
+<main class="content" role="main">
+
+  <article class="article">
+    
+    <span class="article-duration">9 min read</span>
+    
+
+    <h1 class="article-title">mlr3 basics on &#34;iris&#34; - Hello World!</h1>
+
+    
+    <span class="article-date">2020-03-18 by Bernd Bischl</span>
+    
+
+    <div class="article-content">
+      
+
+
+<p>This use case shows how to use the basic mlr3 package on the iris task, so it’s our “Hello World” example.
+It assumes no prior knowledge in ML or mlr3.
+You can find most of the content here also in the <a href="https://mlr3book.mlr-org.com/">mlr3book</a> in a more detailed way.
+Hence we will not make a lot of general comments here but keep it hands-on and short.</p>
+<p>The following operations are shown:</p>
+<ul>
+<li>Creating tasks and learners</li>
+<li>Training and predicting</li>
+<li>Resampling / Cross-validation</li>
+<li>Installing more learners from mlr3’s GitHub learner org</li>
+<li>Benchmarking, to compare multiple learners</li>
+</ul>
+<div id="loading-basic-packages" class="section level2">
+<h2>Loading basic packages</h2>
+<pre class="r"><code># tasks, train, predict, resample, benchmark
+library(&quot;mlr3&quot;)
+# about a dozen reasonable learners
+library(&quot;mlr3learners&quot;)
+# lots of measures for evaluation
+library(&quot;mlr3measures&quot;)</code></pre>
+</div>
+<div id="creating-tasks-and-learners" class="section level2">
+<h2>Creating tasks and learners</h2>
+<p>Lets work on the canonical, simple iris data set, and try out some ML algorithms.
+We will start by using a decision tree with default settings.</p>
+<pre class="r"><code># creates a mlr3 task from scratch, from a data.frame
+# &#39;target&#39; names the column in the dataset we want to learn to predict
+task = TaskClassif$new(id = &quot;iris&quot;, backend = iris, target = &quot;Species&quot;)
+# in this case we could also take the iris example from mlr3&#39;s dictionary of shipped example tasks
+# 2 equivalent calls to create a task. The second is just sugar for the user.
+task = mlr_tasks$get(&quot;iris&quot;)
+task = tsk(&quot;iris&quot;)
+print(task)</code></pre>
+<pre><code>## &lt;TaskClassif:iris&gt; (150 x 5)
+## * Target: Species
+## * Properties: multiclass
+## * Features (4):
+##   - dbl (4): Petal.Length, Petal.Width, Sepal.Length, Sepal.Width</code></pre>
+<pre class="r"><code># create learner from dictionary of mlr3learners
+# 2 equivalent calls:
+learner1 = mlr_learners$get(&quot;classif.rpart&quot;)
+learner1 = lrn(&quot;classif.rpart&quot;)
+print(learner1)</code></pre>
+<pre><code>## &lt;LearnerClassifRpart:classif.rpart&gt;
+## * Model: -
+## * Parameters: xval=0
+## * Packages: rpart
+## * Predict Type: response
+## * Feature types: logical, integer, numeric, factor, ordered
+## * Properties: importance, missings, multiclass, selected_features,
+##   twoclass, weights</code></pre>
+</div>
+<div id="train-and-predict" class="section level2">
+<h2>Train and predict</h2>
+<p>Lets do usual ML operations: Train on some obervations, predict on others.</p>
+<pre class="r"><code># train learner on subset of task
+learner1$train(task, row_ids = 1:120)
+# this is what the decision tree looks like
+print(learner1$model)</code></pre>
+<pre><code>## n= 120 
+## 
+## node), split, n, loss, yval, (yprob)
+##       * denotes terminal node
+## 
+## 1) root 120 70 setosa (0.41666667 0.41666667 0.16666667)  
+##   2) Petal.Length&lt; 2.45 50  0 setosa (1.00000000 0.00000000 0.00000000) *
+##   3) Petal.Length&gt;=2.45 70 20 versicolor (0.00000000 0.71428571 0.28571429)  
+##     6) Petal.Length&lt; 4.95 49  1 versicolor (0.00000000 0.97959184 0.02040816) *
+##     7) Petal.Length&gt;=4.95 21  2 virginica (0.00000000 0.09523810 0.90476190) *</code></pre>
+<pre class="r"><code># predict using observations from task
+preds = learner1$predict(task, row_ids = 121:150)
+# predict using &quot;new&quot; observations from an external data.frame
+preds = learner1$predict_newdata(newdata = iris[121:150, ])
+print(preds)</code></pre>
+<pre><code>## &lt;PredictionClassif&gt; for 30 observations:
+##     row_id     truth   response
+##          1 virginica  virginica
+##          2 virginica versicolor
+##          3 virginica  virginica
+## ---                            
+##         28 virginica  virginica
+##         29 virginica  virginica
+##         30 virginica  virginica</code></pre>
+</div>
+<div id="evaluation" class="section level2">
+<h2>Evaluation</h2>
+<p>Let’s score our prediction object with some metrics.
+And take a deeper look by inspecting the confusion matrix.</p>
+<pre class="r"><code>head(as.data.table(mlr_measures))</code></pre>
+<pre><code>##              key task_type     packages predict_type task_properties
+## 1:   classif.acc   classif mlr3measures     response                
+## 2:   classif.auc   classif mlr3measures         prob        twoclass
+## 3:  classif.bacc   classif mlr3measures     response                
+## 4:    classif.ce   classif mlr3measures     response                
+## 5: classif.costs   classif                  response                
+## 6:   classif.dor   classif mlr3measures     response        twoclass</code></pre>
+<pre class="r"><code>s = preds$score(msr(&quot;classif.acc&quot;))
+print(s)</code></pre>
+<pre><code>## classif.acc 
+##   0.8333333</code></pre>
+<pre class="r"><code>s = preds$score(msrs(c(&quot;classif.acc&quot;, &quot;classif.ce&quot;)))
+print(s)</code></pre>
+<pre><code>## classif.acc  classif.ce 
+##   0.8333333   0.1666667</code></pre>
+<pre class="r"><code>cm = preds$confusion
+print(cm)</code></pre>
+<pre><code>##             truth
+## response     setosa versicolor virginica
+##   setosa          0          0         0
+##   versicolor      0          0         5
+##   virginica       0          0        25</code></pre>
+</div>
+<div id="changing-hyperpars" class="section level2">
+<h2>Changing hyperpars</h2>
+<p>The learner contains information about all parameters that can be configured, including data type, constraints, defaults, etc.
+We can change the hyperparameters either during construction of later through an active binding.</p>
+<pre class="r"><code>print(learner1$param_set)</code></pre>
+<pre><code>## ParamSet: 
+##                id    class lower upper levels     default value
+## 1:       minsplit ParamInt     1   Inf                 20      
+## 2:      minbucket ParamInt     1   Inf        &lt;NoDefault&gt;      
+## 3:             cp ParamDbl     0     1               0.01      
+## 4:     maxcompete ParamInt     0   Inf                  4      
+## 5:   maxsurrogate ParamInt     0   Inf                  5      
+## 6:       maxdepth ParamInt     1    30                 30      
+## 7:   usesurrogate ParamInt     0     2                  2      
+## 8: surrogatestyle ParamInt     0     1                  0      
+## 9:           xval ParamInt     0   Inf                 10     0</code></pre>
+<pre class="r"><code>learner2 = lrn(&quot;classif.rpart&quot;, predict_type = &quot;prob&quot;, minsplit = 50)
+learner2$param_set$values$minsplit = 50</code></pre>
+</div>
+<div id="resampling" class="section level2">
+<h2>Resampling</h2>
+<p>Resampling simply repeats the train-predict-score loop and collects all results in a nice <code>data.table</code>.</p>
+<pre class="r"><code>cv10 = rsmp(&quot;cv&quot;, folds = 10)
+r = resample(task, learner1, cv10)</code></pre>
+<pre><code>## INFO  [03:13:12.215] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 1/10) 
+## INFO  [03:13:12.259] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 2/10) 
+## INFO  [03:13:12.285] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 3/10) 
+## INFO  [03:13:12.302] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 4/10) 
+## INFO  [03:13:12.322] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 5/10) 
+## INFO  [03:13:12.338] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 6/10) 
+## INFO  [03:13:12.354] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 7/10) 
+## INFO  [03:13:12.371] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 8/10) 
+## INFO  [03:13:12.387] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 9/10) 
+## INFO  [03:13:12.404] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 10/10)</code></pre>
+<pre class="r"><code>print(r)</code></pre>
+<pre><code>## &lt;ResampleResult&gt; of 10 iterations
+## * Task: iris
+## * Learner: classif.rpart
+## * Warnings: 0 in 0 iterations
+## * Errors: 0 in 0 iterations</code></pre>
+<pre class="r"><code>r$score(msrs(c(&quot;classif.acc&quot;, &quot;classif.ce&quot;)))</code></pre>
+<pre><code>##              task task_id               learner    learner_id     resampling
+##  1: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+##  2: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+##  3: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+##  4: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+##  5: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+##  6: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+##  7: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+##  8: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+##  9: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+## 10: &lt;TaskClassif&gt;    iris &lt;LearnerClassifRpart&gt; classif.rpart &lt;ResamplingCV&gt;
+##     resampling_id iteration prediction classif.acc classif.ce
+##  1:            cv         1     &lt;list&gt;   0.9333333 0.06666667
+##  2:            cv         2     &lt;list&gt;   0.9333333 0.06666667
+##  3:            cv         3     &lt;list&gt;   1.0000000 0.00000000
+##  4:            cv         4     &lt;list&gt;   0.9333333 0.06666667
+##  5:            cv         5     &lt;list&gt;   0.9333333 0.06666667
+##  6:            cv         6     &lt;list&gt;   0.9333333 0.06666667
+##  7:            cv         7     &lt;list&gt;   1.0000000 0.00000000
+##  8:            cv         8     &lt;list&gt;   0.9333333 0.06666667
+##  9:            cv         9     &lt;list&gt;   0.8666667 0.13333333
+## 10:            cv        10     &lt;list&gt;   1.0000000 0.00000000</code></pre>
+<pre class="r"><code>print(r$data)</code></pre>
+<pre><code>##              task               learner     resampling iteration prediction
+##  1: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;         1     &lt;list&gt;
+##  2: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;         2     &lt;list&gt;
+##  3: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;         3     &lt;list&gt;
+##  4: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;         4     &lt;list&gt;
+##  5: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;         5     &lt;list&gt;
+##  6: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;         6     &lt;list&gt;
+##  7: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;         7     &lt;list&gt;
+##  8: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;         8     &lt;list&gt;
+##  9: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;         9     &lt;list&gt;
+## 10: &lt;TaskClassif&gt; &lt;LearnerClassifRpart&gt; &lt;ResamplingCV&gt;        10     &lt;list&gt;</code></pre>
+<pre class="r"><code># get all predictions nicely concatenated in a table
+preds = r$prediction()
+print(preds)</code></pre>
+<pre><code>## &lt;PredictionClassif&gt; for 150 observations:
+##     row_id     truth  response
+##          6    setosa    setosa
+##          8    setosa    setosa
+##         13    setosa    setosa
+## ---                           
+##        103 virginica virginica
+##        112 virginica virginica
+##        128 virginica virginica</code></pre>
+<pre class="r"><code>cm = preds$confusion
+print(cm)</code></pre>
+<pre><code>##             truth
+## response     setosa versicolor virginica
+##   setosa         50          0         0
+##   versicolor      0         47         5
+##   virginica       0          3        45</code></pre>
+</div>
+<div id="populating-the-learner-dictionary" class="section level2">
+<h2>Populating the learner dictionary</h2>
+<p>mlr3learners ships out with a dozen different popular learners.
+We can list them from the its dictionary.
+If we want more, we can load on extension package from mlr3’s
+<a href="https://github.com/mlr-org/mlr3learners/wiki">learner-org</a> on GitHub.
+Note how after the install the dictionary increases in size.</p>
+<pre class="r"><code>head(as.data.table(mlr_learners)[, c(&quot;key&quot;, &quot;packages&quot;)])</code></pre>
+<pre><code>## Warning: Package &#39;glmnet&#39; required but not installed for Learner
+## &#39;classif.glmnet&#39;</code></pre>
+<pre><code>## Warning: Package &#39;glmnet&#39; required but not installed for Learner &#39;regr.glmnet&#39;</code></pre>
+<pre><code>## Warning: Package &#39;DiceKriging&#39; required but not installed for Learner &#39;regr.km&#39;</code></pre>
+<pre><code>##                    key packages
+## 1:       classif.debug         
+## 2: classif.featureless         
+## 3:      classif.glmnet   glmnet
+## 4:        classif.kknn     kknn
+## 5:         classif.lda     MASS
+## 6:     classif.log_reg    stats</code></pre>
+<pre class="r"><code># remotes::install_github(&quot;mlr3learners/mlr3learners.randomForest&quot;)
+library(mlr3learners.randomForest)
+print(as.data.table(mlr_learners)[, c(&quot;key&quot;, &quot;packages&quot;)])</code></pre>
+<pre><code>## Warning: Package &#39;glmnet&#39; required but not installed for Learner
+## &#39;classif.glmnet&#39;</code></pre>
+<pre><code>## Warning: Package &#39;glmnet&#39; required but not installed for Learner &#39;regr.glmnet&#39;</code></pre>
+<pre><code>## Warning: Package &#39;DiceKriging&#39; required but not installed for Learner &#39;regr.km&#39;</code></pre>
+<pre><code>##                      key     packages
+##  1:        classif.debug             
+##  2:  classif.featureless             
+##  3:       classif.glmnet       glmnet
+##  4:         classif.kknn         kknn
+##  5:          classif.lda         MASS
+##  6:      classif.log_reg        stats
+##  7:  classif.naive_bayes        e1071
+##  8:          classif.qda         MASS
+##  9: classif.randomForest randomForest
+## 10:       classif.ranger       ranger
+## 11:        classif.rpart        rpart
+## 12:          classif.svm        e1071
+## 13:      classif.xgboost      xgboost
+## 14:     regr.featureless        stats
+## 15:          regr.glmnet       glmnet
+## 16:            regr.kknn         kknn
+## 17:              regr.km  DiceKriging
+## 18:              regr.lm        stats
+## 19:    regr.randomForest randomForest
+## 20:          regr.ranger       ranger
+## 21:           regr.rpart        rpart
+## 22:             regr.svm        e1071
+## 23:         regr.xgboost      xgboost
+##                      key     packages</code></pre>
+</div>
+<div id="benchmarking-multiple-learners" class="section level2">
+<h2>Benchmarking multiple learners</h2>
+<p>The <code>benchmark()</code> function can conveniently compare learners on the same dataset(s).</p>
+<pre class="r"><code>learners = list(learner1, learner2, lrn(&quot;classif.randomForest&quot;))
+bm_grid = benchmark_grid(task, learners, cv10)
+bm = benchmark(bm_grid)</code></pre>
+<pre><code>## INFO  [03:13:13.559] Benchmark with 30 resampling iterations 
+## INFO  [03:13:13.561] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 1/10) 
+## INFO  [03:13:13.578] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 2/10) 
+## INFO  [03:13:13.595] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 3/10) 
+## INFO  [03:13:13.611] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 4/10) 
+## INFO  [03:13:13.628] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 5/10) 
+## INFO  [03:13:13.645] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 6/10) 
+## INFO  [03:13:13.663] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 7/10) 
+## INFO  [03:13:13.681] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 8/10) 
+## INFO  [03:13:13.703] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 9/10) 
+## INFO  [03:13:13.720] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 10/10) 
+## INFO  [03:13:13.737] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 1/10) 
+## INFO  [03:13:13.754] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 2/10) 
+## INFO  [03:13:13.771] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 3/10) 
+## INFO  [03:13:13.788] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 4/10) 
+## INFO  [03:13:13.805] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 5/10) 
+## INFO  [03:13:13.822] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 6/10) 
+## INFO  [03:13:13.843] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 7/10) 
+## INFO  [03:13:13.860] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 8/10) 
+## INFO  [03:13:13.877] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 9/10) 
+## INFO  [03:13:13.893] Applying learner &#39;classif.rpart&#39; on task &#39;iris&#39; (iter 10/10) 
+## INFO  [03:13:13.911] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 1/10) 
+## INFO  [03:13:14.042] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 2/10) 
+## INFO  [03:13:14.080] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 3/10) 
+## INFO  [03:13:14.119] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 4/10) 
+## INFO  [03:13:14.163] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 5/10) 
+## INFO  [03:13:14.201] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 6/10) 
+## INFO  [03:13:14.239] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 7/10) 
+## INFO  [03:13:14.283] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 8/10) 
+## INFO  [03:13:14.320] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 9/10) 
+## INFO  [03:13:14.361] Applying learner &#39;classif.randomForest&#39; on task &#39;iris&#39; (iter 10/10) 
+## INFO  [03:13:14.427] Finished benchmark</code></pre>
+<pre class="r"><code>print(bm)</code></pre>
+<pre><code>## &lt;BenchmarkResult&gt; of 30 rows with 3 resampling runs
+##  nr task_id           learner_id resampling_id iters warnings errors
+##   1    iris        classif.rpart            cv    10        0      0
+##   2    iris        classif.rpart            cv    10        0      0
+##   3    iris classif.randomForest            cv    10        0      0</code></pre>
+<pre class="r"><code>print(bm$aggregate(measures = msrs(c(&quot;classif.acc&quot;, &quot;classif.ce&quot;))))</code></pre>
+<pre><code>##    nr  resample_result task_id           learner_id resampling_id iters
+## 1:  1 &lt;ResampleResult&gt;    iris        classif.rpart            cv    10
+## 2:  2 &lt;ResampleResult&gt;    iris        classif.rpart            cv    10
+## 3:  3 &lt;ResampleResult&gt;    iris classif.randomForest            cv    10
+##    classif.acc classif.ce
+## 1:   0.9266667 0.07333333
+## 2:   0.9333333 0.06666667
+## 3:   0.9466667 0.05333333</code></pre>
+</div>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
+<p>We left out a lot of details and other features.
+If you want to know more, read the <a href="https://mlr3book.mlr-org.com/">mlr3book</a> and the documentation of the mentioned packages.</p>
+</div>
+
+    </div>
+  </article>
+
+  
+
+
+</main>
+
+      <footer class="footer">
+        <ul class="footer-links">
+          <li>
+            <a href="/index.xml" type="application/rss+xml" target="_blank">RSS feed</a>
+          </li>
+          <li>
+            <a href="https://gohugo.io/" class="footer-links-kudos">Made with <img src="/images/hugo-logo.png" alt="Img link to Hugo website" width="22" height="22"></a>
+          </li>
+        </ul>
+      </footer>
+
+    </div>
+    
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/highlight.min.js"></script>
+
+
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/languages/r.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/languages/yaml.min.js"></script>
+<script>hljs.configure({languages: []}); hljs.initHighlightingOnLoad();</script>
+
+
+
+    
+<script src="/js/math-code.js"></script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+
+
+    
+  </body>
+</html>
+
